@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Simpalm Staffing — Client Onboarding</title>
+  <meta name="description" content="Official Simpalm Staffing client onboarding portal">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f4f7fb;
+      --bg2: #ffffff;
+      --bg3: #eef2f8;
+      --border: #d5e0ee;
+      --border2: #b8ccde;
+      --text: #1B3A6B;
+      --text2: #4a6a90;
+      --text3: #8a9eb8;
+      --accent: #1B3A6B;
+      --accent2: #2a52a0;
+      --gold: #C8992A;
+      --success: #0fa871;
+      --warning: #C8992A;
+      --danger: #d94040;
+      --radius: 10px;
+      --sidebar-w: 268px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.65;
+    }
+
+    /* ── SETUP MODAL ── */
+    #setup-overlay {
+      position: fixed; inset: 0;
+      background: rgba(27,58,107,0.88);
+      backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; padding: 20px;
+    }
+    #setup-overlay.hidden { display: none; }
+    .setup-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 44px 38px 36px;
+      width: min(460px, 94vw);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    }
+    .setup-logo { text-align: center; margin-bottom: 28px; }
+    .setup-logo .brand { font-size: 1.15rem; font-weight: 800; color: var(--accent); letter-spacing: 0.3px; }
+    .setup-logo .tagline { font-size: 0.82rem; color: var(--text3); margin-top: 5px; }
+    .setup-logo .pin { font-size: 2.2rem; display: block; margin-bottom: 8px; }
+
+    /* ── COMPLETION OVERLAY ── */
+    #completion-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(135deg, #0a0f1e 0%, #0d1a2e 50%, #0a0f1e 100%);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; opacity: 0; transition: opacity .6s ease;
+    }
+    #completion-overlay.show { opacity: 1; }
+    #completion-overlay.hidden { display: none; }
+    .completion-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 48px 40px; max-width: 540px; width: 100%;
+      text-align: center; box-shadow: 0 32px 80px rgba(0,0,0,.6);
+    }
+    .completion-badge { font-size: 4rem; margin-bottom: 16px; display: block; animation: bounce-in .7s cubic-bezier(.36,.07,.19,.97) both; }
+    .completion-title { font-size: 1.75rem; font-weight: 800; color: var(--accent); margin-bottom: 10px; letter-spacing: -.5px; }
+    .completion-sub { font-size: 1rem; color: var(--text2); margin-bottom: 24px; line-height: 1.6; }
+    .completion-divider { width: 60px; height: 3px; background: var(--gold); border-radius: 4px; margin: 20px auto; }
+    .completion-note { font-size: .85rem; color: var(--text3); line-height: 1.6; background: var(--bg3); border-radius: 10px; padding: 14px 16px; border: 1px solid var(--border); }
+    @keyframes bounce-in { 0% { transform: scale(.3); opacity: 0; } 50% { transform: scale(1.1); } 70% { transform: scale(.95); } 100% { transform: scale(1); opacity: 1; } }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.82rem; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+    .form-group label .req { color: var(--danger); }
+    input[type=text], input[type=email], input[type=url], input[type=tel],
+    textarea, select {
+      width: 100%; padding: 11px 14px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text);
+      font-size: 0.92rem; outline: none;
+      transition: border-color 0.2s; font-family: inherit;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    input::placeholder, textarea::placeholder { color: var(--text3); }
+    input.input-invalid { border-color: #e05252 !important; }
+    .field-error-msg { font-size: 0.78rem; color: #e05252; margin-top: 4px; display: block; }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 13px 24px;
+      background: var(--gold); color: #fff; border: none;
+      border-radius: var(--radius); font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; font-family: inherit; margin-top: 8px;
+    }
+    .btn-primary:hover { background: #b5841f; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; min-height: 100vh; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--bg2);
+      border-right: 1px solid var(--border);
+      position: fixed; top: 0; left: 0; bottom: 0;
+      overflow-y: auto; z-index: 100;
+      display: flex; flex-direction: column;
+      transition: transform 0.3s ease;
+    }
+    .sidebar-header { padding: 20px 20px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .sidebar-brand { font-size: 0.95rem; font-weight: 800; color: var(--accent); }
+    .sidebar-client { font-size: 0.76rem; color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-progress { padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .progress-label { font-size: 0.74rem; color: var(--text2); margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .progress-track { height: 4px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold), #e0b040); border-radius: 4px; transition: width 0.5s ease; }
+
+    .steps-nav { padding: 10px 10px; flex: 1; overflow-y: auto; }
+    .step-nav { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 9px; cursor: pointer; transition: background 0.15s; margin-bottom: 1px; }
+    .step-nav:hover { background: rgba(27,58,107,0.04); }
+    .step-nav.active { background: rgba(27,58,107,0.08); }
+    .step-nav.active .sn-num { border-color: var(--accent); color: var(--accent); background: rgba(27,58,107,0.06); }
+    .step-nav.submitted .sn-num { border-color: var(--success); color: var(--success); background: rgba(15,168,113,0.08); }
+    .sn-num { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; border: 1.5px solid var(--border2); color: var(--text3); background: var(--bg3); flex-shrink: 0; }
+    .sn-info { flex: 1; min-width: 0; }
+    .sn-name { font-size: 0.8rem; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sn-cat { font-size: 0.7rem; color: var(--text3); }
+    .sn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+    .step-nav.submitted .sn-dot { background: var(--success); }
+    .step-nav.active .sn-dot { background: var(--accent); }
+
+    .sidebar-footer { padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0; font-size: 0.72rem; color: var(--text3); }
+
+    /* ── TOPBAR (mobile) ── */
+    .topbar { display: none; padding: 12px 18px; background: var(--bg2); border-bottom: 1px solid var(--border); align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 90; }
+    .topbar-brand { font-size: 0.95rem; font-weight: 800; color: var(--accent); }
+    .menu-toggle { background: none; border: 1px solid var(--border2); color: var(--text2); cursor: pointer; font-size: 1.1rem; padding: 6px 10px; border-radius: 7px; }
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99; }
+    .sidebar-overlay.show { display: block; }
+
+    /* ── MAIN CONTENT ── */
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+    .step-page { display: none; }
+    .step-page.active { display: block; animation: fadeUp 0.3s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .step-content { max-width: 780px; margin: 0 auto; padding: 40px 44px 12px; width: 100%; }
+
+    /* STEP HEADER */
+    .step-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(27,58,107,0.07); border: 1px solid rgba(27,58,107,0.2); color: var(--accent); padding: 4px 13px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; margin-bottom: 12px; }
+    .step-badge.done { background: rgba(15,168,113,0.1); border-color: rgba(15,168,113,0.3); color: var(--success); }
+    .step-title { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .step-sub { color: var(--text2); font-size: 0.9rem; }
+
+    /* CARDS */
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 13px; padding: 22px 24px; margin-bottom: 18px; }
+    .card-title { font-size: 0.97rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+
+    /* VIDEO */
+    .video-wrap { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 10px; border: 1px solid var(--border); background: #0a0f1e; }
+    .video-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+    .video-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9eb8; gap: 10px; text-align: center; padding: 20px; }
+    .video-placeholder .vp-icon { font-size: 3rem; }
+
+    /* INFO BOXES */
+    .info { background: rgba(27,58,107,0.05); border: 1px solid rgba(27,58,107,0.15); border-radius: 10px; padding: 14px 18px; margin: 14px 0; font-size: 0.88rem; color: var(--text2); }
+    .info.warn { background: rgba(232,160,32,0.06); border-color: rgba(232,160,32,0.22); color: var(--text); }
+    .info.todo { background: rgba(232,160,32,0.09); border: 1px dashed var(--gold); color: var(--text); }
+    .info strong { color: var(--text); }
+
+    /* SECTION LABEL */
+    .sec-label { font-size: 0.95rem; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+
+    /* SUBMIT AREA */
+    .submit-area { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 16px 0; margin-top: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; z-index: 50; box-shadow: 0 -6px 20px rgba(0,0,0,0.07); }
+    .btn-submit { display: inline-flex; align-items: center; gap: 9px; padding: 13px 30px; background: var(--gold); color: #fff; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .btn-submit:hover { background: #b5841f; transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .btn-nav { display: inline-flex; align-items: center; gap: 7px; padding: 13px 22px; background: transparent; border: 1px solid var(--border2); color: var(--text2); border-radius: 10px; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .btn-nav:hover { border-color: var(--accent); color: var(--accent); }
+    .submit-status { font-size: 0.85rem; color: var(--text2); margin-left: auto; }
+
+    /* GRID for two-column form rows */
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* RESPONSIVE */
+    @media (max-width: 860px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .topbar { display: flex; }
+      .step-content { padding: 28px 20px 12px; }
+      .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ════════ SETUP MODAL ════════ -->
+  <div id="setup-overlay">
+    <div class="setup-box">
+      <div class="setup-logo">
+        <span class="pin">🤝</span>
+        <div class="brand">Simpalm Staffing</div>
+        <div class="tagline">Client Onboarding Portal</div>
+      </div>
+      <div class="form-group">
+        <label>Company Name <span class="req">*</span></label>
+        <input type="text" id="su-company" placeholder="Acme Corp" autocomplete="organization">
+      </div>
+      <div class="form-group">
+        <label>Your Full Name <span class="req">*</span></label>
+        <input type="text" id="su-name" placeholder="Jane Smith" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Work Email <span class="req">*</span></label>
+        <input type="email" id="su-email" placeholder="jane@acmecorp.com" autocomplete="email">
+        <span class="field-error-msg" id="su-error" style="display:none;"></span>
+      </div>
+      <button class="btn-primary" id="su-start">Begin Onboarding →</button>
+    </div>
+  </div>
+
+  <!-- ════════ COMPLETION OVERLAY ════════ -->
+  <div id="completion-overlay" class="hidden">
+    <div class="completion-card">
+      <span class="completion-badge">🎉</span>
+      <div class="completion-title">Onboarding Complete!</div>
+      <div class="completion-divider"></div>
+      <div class="completion-sub" id="completion-sub">Thank you. Our team will be in touch shortly.</div>
+      <div class="completion-note">You can close this window. A Simpalm Staffing representative will reach out with next steps.</div>
+    </div>
+  </div>
+
+  <!-- ════════ APP ════════ -->
+  <div class="layout" id="app" style="display:none;">
+
+    <!-- MOBILE TOPBAR -->
+    <div class="topbar">
+      <span class="topbar-brand">Simpalm Staffing</span>
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    </div>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">🤝 Simpalm Staffing</div>
+        <div class="sidebar-client" id="sb-client">Client Onboarding</div>
+      </div>
+      <div class="sidebar-progress">
+        <div class="progress-label"><span>Progress</span><span id="pct-label">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+      <nav class="steps-nav" id="steps-nav"></nav>
+      <div class="sidebar-footer">© Simpalm Staffing · Client Portal</div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main" id="main"></main>
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════════════════════════════
+       SIMPALM STAFFING — CLIENT ONBOARDING SYSTEM
+       Fork of the candidate onboarding portal, tailored for US clients.
+       Flow: 1) Cheyenne welcome video  2) Client intake form  3) Contract
+       Backend: same Google Apps Script + spreadsheet, new "Client" tabs.
+       ══════════════════════════════════════════════════════════════════ */
+
+    // ─── CONFIG ───────────────────────────────────────────────────────
+    // Same Apps Script web app as the candidate portal (shared backend).
+    const AUTOMATION_URL  = 'https://script.google.com/macros/s/AKfycbycwA6oRRSgNEVXmi7UxZ1ny1EyDBUEHhmPtorVCS8ULwa2E9_knXzouFL22jSHKQlO/exec';
+    const CONTRACTSIGN_URL = 'https://contracts.simpalmcontracts.us';
+    const SUBMISSION_TYPE  = 'client';   // routes Apps Script to the Client tabs
+
+    // ⚠️ TODO — replace with Cheyenne's real welcome video.
+    //    Google Drive: paste the file ID (the long string in /file/d/<ID>/view).
+    //    Or set CHEYENNE_VIDEO_URL to a full YouTube/Vimeo embed URL instead.
+    const CHEYENNE_VIDEO_ID  = '';  // e.g. '1AbC...' (Drive file ID)
+    const CHEYENNE_VIDEO_URL = '';  // e.g. 'https://www.youtube.com/embed/XXXX' (overrides the Drive ID)
+
+    // ─── STATE ────────────────────────────────────────────────────────
+    const LS_KEY = 'simpalm_client_state';
+    let state = {
+      company: '', name: '', email: '',
+      current: 1,
+      steps: {},          // { stepId: { submitted: bool, data: {} } }
+      contractUrl: '',
+    };
+
+    // ─── STEP DEFINITIONS ─────────────────────────────────────────────
+    // Each step: id, icon, name, category, render() -> HTML, validate() -> bool
+    const STEP_IDS = [1, 2, 3];
+
+    const STEPS = {
+      1: {
+        icon: '🎬', name: 'Welcome', cat: 'Introduction',
+        render: () => {
+          const embed = videoEmbedSrc();
+          const videoHtml = embed
+            ? `<div class="video-wrap"><iframe src="${embed}" allow="autoplay" allowfullscreen></iframe></div>`
+            : `<div class="video-wrap"><div class="video-placeholder">
+                 <span class="vp-icon">🎬</span>
+                 <strong>Cheyenne's welcome video goes here</strong>
+                 <span style="font-size:.82rem;">Set <code>CHEYENNE_VIDEO_ID</code> at the top of the script.</span>
+               </div></div>`;
+          return `
+            <div class="card">
+              <div class="card-title">👋 A Welcome Message from Cheyenne</div>
+              <p style="color:var(--text2);font-size:.9rem;margin-bottom:14px;">
+                Please watch this short welcome video. Cheyenne walks you through what to expect,
+                how Simpalm Staffing works with your company, and the next steps in this onboarding.
+              </p>
+              ${videoHtml}
+            </div>
+            <div class="info">When you're ready, click <strong>Continue</strong> to fill out your company intake form.</div>`;
+        },
+        // Watching is not enforceable; advancing the step counts as done.
+        validate: () => true,
+      },
+
+      2: {
+        icon: '📋', name: 'Company Form', cat: 'Intake',
+        render: () => {
+          const d = (state.steps[2] && state.steps[2].data) || {};
+          const v = (k) => (d[k] || '').replace(/"/g, '&quot;');
+          return `
+            <div class="info todo">
+              🛠️ <strong>Placeholder form.</strong> These are generic intake fields.
+              Replace this section with the real form Leonardo will provide.
+            </div>
+            <div class="card">
+              <div class="card-title">🏢 Company Information</div>
+              <div class="grid2">
+                <div class="form-group"><label>Company Legal Name <span class="req">*</span></label>
+                  <input type="text" id="f-legalname" value="${v('legalName')}" placeholder="Acme Corporation, LLC"></div>
+                <div class="form-group"><label>Industry</label>
+                  <input type="text" id="f-industry" value="${v('industry')}" placeholder="Real Estate / Legal / Healthcare"></div>
+              </div>
+              <div class="grid2">
+                <div class="form-group"><label>Company Website</label>
+                  <input type="url" id="f-website" value="${v('website')}" placeholder="https://acmecorp.com"></div>
+                <div class="form-group"><label>Company Size</label>
+                  <input type="text" id="f-size" value="${v('size')}" placeholder="1–10 employees"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">👤 Primary Contact</div>
+              <div class="grid2">
+                <div class="form-group"><label>Contact Name <span class="req">*</span></label>
+                  <input type="text" id="f-contactname" value="${v('contactName') || state.name}" placeholder="Jane Smith"></div>
+                <div class="form-group"><label>Title / Role</label>
+                  <input type="text" id="f-title" value="${v('title')}" placeholder="Operations Manager"></div>
+              </div>
+              <div class="grid2">
+                <div class="form-group"><label>Phone</label>
+                  <input type="tel" id="f-phone" value="${v('phone')}" placeholder="+1 (555) 123-4567"></div>
+                <div class="form-group"><label>Best time to reach you</label>
+                  <input type="text" id="f-besttime" value="${v('bestTime')}" placeholder="Weekdays, 9am–5pm ET"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">🎯 Staffing Needs</div>
+              <div class="form-group"><label>What roles are you looking to fill?</label>
+                <textarea id="f-roles" placeholder="e.g. 2 bilingual paralegals, 1 virtual assistant">${v('roles')}</textarea></div>
+              <div class="form-group"><label>Anything else we should know?</label>
+                <textarea id="f-notes" placeholder="Timeline, budget range, special requirements...">${v('notes')}</textarea></div>
+            </div>`;
+        },
+        collect: () => ({
+          legalName:   val('f-legalname'),
+          industry:    val('f-industry'),
+          website:     val('f-website'),
+          size:        val('f-size'),
+          contactName: val('f-contactname'),
+          title:       val('f-title'),
+          phone:       val('f-phone'),
+          bestTime:    val('f-besttime'),
+          roles:       val('f-roles'),
+          notes:       val('f-notes'),
+        }),
+        validate: () => {
+          const legal = val('f-legalname'), contact = val('f-contactname');
+          if (!legal) { flagInvalid('f-legalname', 'Company legal name is required'); return false; }
+          if (!contact) { flagInvalid('f-contactname', 'Contact name is required'); return false; }
+          return true;
+        },
+      },
+
+      3: {
+        icon: '✍️', name: 'Contract', cat: 'Agreement',
+        render: () => {
+          const sent = state.steps[3] && state.steps[3].data && state.steps[3].data.cs_initiated;
+          return `
+            <div class="info todo">
+              🛠️ <strong>To be implemented.</strong> The service agreement will be sent and
+              signed through <strong>ContractSign</strong> (${CONTRACTSIGN_URL}). Wiring pending.
+            </div>
+            <div class="card">
+              <div class="card-title">📄 Service Agreement</div>
+              <p style="color:var(--text2);font-size:.9rem;margin-bottom:14px;">
+                The final step is signing the Simpalm Staffing service agreement. Once available,
+                you'll receive a secure link to review and sign the contract electronically.
+              </p>
+              <div style="text-align:center;padding:8px 0 4px;">
+                <button class="btn-primary" id="cs-send-btn" style="max-width:320px;margin:0 auto;"
+                        onclick="initiateContract()" ${sent ? 'disabled' : ''}>
+                  ${sent ? '✓ Contract Sent' : '✉️ Send My Contract'}
+                </button>
+              </div>
+            </div>
+            <div class="info" id="cs-status" style="display:${sent ? 'block' : 'none'};background:rgba(15,168,113,0.08);border-color:rgba(15,168,113,0.3);">
+              ✅ Your contract has been sent. Check your inbox to review and sign.
+            </div>`;
+        },
+        validate: () => true,   // contract sending is optional for the scaffold
+      },
+    };
+
+    // ─── HELPERS ──────────────────────────────────────────────────────
+    function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+    function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+    function flagInvalid(id, msg) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.add('input-invalid');
+      let m = el.parentNode.querySelector('.field-error-msg');
+      if (!m) { m = document.createElement('span'); m.className = 'field-error-msg'; el.parentNode.appendChild(m); }
+      m.textContent = msg; m.style.display = 'block';
+      el.addEventListener('input', () => { el.classList.remove('input-invalid'); m.style.display = 'none'; }, { once: true });
+    }
+    function videoEmbedSrc() {
+      if (CHEYENNE_VIDEO_URL) return CHEYENNE_VIDEO_URL;
+      if (CHEYENNE_VIDEO_ID)  return `https://drive.google.com/file/d/${CHEYENNE_VIDEO_ID}/preview`;
+      return '';
+    }
+    function saveState() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+    function loadState() { try { const s = localStorage.getItem(LS_KEY); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {} }
+
+    // ─── SETUP FLOW ───────────────────────────────────────────────────
+    document.getElementById('su-start').addEventListener('click', () => {
+      const company = val('su-company'), name = val('su-name'), email = val('su-email');
+      const err = document.getElementById('su-error');
+      err.style.display = 'none';
+      if (!company || !name) { err.textContent = 'Please fill in all required fields.'; err.style.display = 'block'; return; }
+      if (!isValidEmail(email)) { err.textContent = 'Please enter a valid work email.'; err.style.display = 'block'; return; }
+      state.company = company; state.name = name; state.email = email;
+      saveState();
+      enterApp();
+    });
+
+    function enterApp() {
+      document.getElementById('setup-overlay').classList.add('hidden');
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('sb-client').textContent = state.company || state.name;
+      renderNav();
+      goStep(state.current || 1);
+    }
+
+    // ─── NAVIGATION ───────────────────────────────────────────────────
+    function renderNav() {
+      const nav = document.getElementById('steps-nav');
+      nav.innerHTML = STEP_IDS.map(id => {
+        const s = STEPS[id];
+        const done = state.steps[id] && state.steps[id].submitted;
+        const active = state.current === id;
+        const cls = ['step-nav', active ? 'active' : '', done ? 'submitted' : ''].filter(Boolean).join(' ');
+        return `<div class="${cls}" onclick="goStep(${id})">
+            <div class="sn-num">${done ? '✓' : s.icon}</div>
+            <div class="sn-info"><div class="sn-name">${s.name}</div><div class="sn-cat">${s.cat}</div></div>
+            <div class="sn-dot"></div>
+          </div>`;
+      }).join('');
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const total = STEP_IDS.length;
+      const done = STEP_IDS.filter(id => state.steps[id] && state.steps[id].submitted).length;
+      const pct = Math.round((done / total) * 100);
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('pct-label').textContent = pct + '%';
+    }
+
+    function goStep(id) {
+      state.current = id; saveState();
+      const s = STEPS[id];
+      const isLast = id === STEP_IDS[STEP_IDS.length - 1];
+      const done = state.steps[id] && state.steps[id].submitted;
+      document.getElementById('main').innerHTML = `
+        <div class="step-page active">
+          <div class="step-content">
+            <span class="step-badge ${done ? 'done' : ''}">${done ? '✓ Completed' : 'Step ' + id + ' of ' + STEP_IDS.length}</span>
+            <h1 class="step-title">${s.icon} ${s.name}</h1>
+            <p class="step-sub">${s.cat}</p>
+            <div style="height:20px;"></div>
+            ${s.render()}
+            <div class="submit-area">
+              ${id > 1 ? `<button class="btn-nav" onclick="goStep(${id - 1})">← Back</button>` : ''}
+              <button class="btn-submit" id="step-submit" onclick="submitStep(${id})">
+                ${isLast ? '✓ Finish Onboarding' : (s.collect ? 'Save & Continue →' : 'Continue →')}
+              </button>
+              <span class="submit-status" id="submit-status"></span>
+            </div>
+          </div>
+        </div>`;
+      renderNav();
+      window.scrollTo(0, 0);
+      if (window.innerWidth <= 860) document.getElementById('sidebar').classList.remove('open');
+    }
+
+    // ─── SUBMIT A STEP ────────────────────────────────────────────────
+    async function submitStep(id) {
+      const s = STEPS[id];
+      if (s.validate && !s.validate()) return;
+
+      const data = s.collect ? s.collect() : {};
+      state.steps[id] = { submitted: true, data: Object.assign({}, (state.steps[id] || {}).data, data) };
+      saveState();
+
+      // Push EVERY step to backend so all 3 stages track on the sheet
+      const statusEl = document.getElementById('submit-status');
+      if (statusEl) statusEl.textContent = 'Saving…';
+      try { await pushToBackend(id, data); if (statusEl) statusEl.textContent = '✓ Saved'; }
+      catch (e) { if (statusEl) statusEl.textContent = '⚠️ Saved locally (offline)'; }
+
+      renderNav();
+      const isLast = id === STEP_IDS[STEP_IDS.length - 1];
+      if (isLast) { showCompletion(); }
+      else { setTimeout(() => goStep(id + 1), 350); }
+    }
+
+    // ─── BACKEND ──────────────────────────────────────────────────────
+    async function pushToBackend(stepId, data) {
+      const payload = {
+        type: SUBMISSION_TYPE,
+        company: state.company,
+        contactName: state.name,
+        email: state.email,
+        stepId: stepId,
+        stepName: STEPS[stepId].name,
+        formData: data,
+        timestamp: new Date().toISOString(),
+      };
+      const res = await fetch(AUTOMATION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },   // avoids Apps Script CORS preflight
+        body: JSON.stringify(payload),
+      });
+      return res.json().catch(() => ({}));
+    }
+
+    // ─── CONTRACTSIGN (placeholder) ───────────────────────────────────
+    async function initiateContract() {
+      const btn = document.getElementById('cs-send-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending…'; }
+      // TODO: wire to ContractSign POST /api/portal/initiate once the client template exists.
+      // For now, just mark locally so the flow is demonstrable.
+      state.steps[3] = { submitted: (state.steps[3] || {}).submitted || false,
+                         data: Object.assign({}, (state.steps[3] || {}).data, { cs_initiated: true }) };
+      saveState();
+      setTimeout(() => {
+        if (btn) { btn.textContent = '✓ Contract Sent'; }
+        const st = document.getElementById('cs-status');
+        if (st) st.style.display = 'block';
+      }, 600);
+    }
+
+    // ─── COMPLETION ───────────────────────────────────────────────────
+    function showCompletion() {
+      const ov = document.getElementById('completion-overlay');
+      document.getElementById('completion-sub').textContent =
+        `Thank you, ${state.name}. Your onboarding for ${state.company} is complete.`;
+      ov.classList.remove('hidden');
+      requestAnimationFrame(() => ov.classList.add('show'));
+    }
+
+    // ─── MOBILE SIDEBAR ───────────────────────────────────────────────
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar-overlay').classList.toggle('show');
+    }
+
+    // ─── INIT ─────────────────────────────────────────────────────────
+    (function init() {
+      loadState();
+      if (state.company && state.name && state.email) { enterApp(); }
+      else {
+        // Prefill setup if partial state exists
+        if (state.company) document.getElementById('su-company').value = state.company;
+        if (state.name)    document.getElementById('su-name').value = state.name;
+        if (state.email)   document.getElementById('su-email').value = state.email;
+      }
+    })();
+  </script>
+</body>
+</html>
