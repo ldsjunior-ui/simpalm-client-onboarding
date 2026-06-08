@@ -335,69 +335,86 @@
       },
 
       2: {
-        icon: '📋', name: 'Company Form', cat: 'Intake',
+        icon: '📋', name: 'Client Form', cat: 'Intake',
         render: () => {
           const d = (state.steps[2] && state.steps[2].data) || {};
           const v = (k) => (d[k] || '').replace(/"/g, '&quot;');
           return `
-            <div class="info todo">
-              🛠️ <strong>Placeholder form.</strong> These are generic intake fields.
-              Replace this section with the real form Leonardo will provide.
+            <div class="info">
+              Thank you for choosing Simpalm. Please complete the information below to help us set up
+              your account and ensure smooth communication, billing, and prepare the Agreement.
             </div>
+
             <div class="card">
               <div class="card-title">🏢 Company Information</div>
+              <div class="form-group"><label>Company Legal Name <span class="req">*</span></label>
+                <input type="text" id="f-legalname" value="${v('legalName')}" placeholder="Acme Corporation, LLC"></div>
+              <div class="form-group"><label>State of Incorporation <span class="req">*</span></label>
+                <input type="text" id="f-state" value="${v('stateIncorp')}" placeholder="Delaware"></div>
+              <div class="form-group"><label>Business Address <span class="req">*</span></label>
+                <textarea id="f-address" placeholder="Street, City, State, ZIP">${v('businessAddress')}</textarea></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">✍️ Agreement Signatory Information</div>
               <div class="grid2">
-                <div class="form-group"><label>Company Legal Name <span class="req">*</span></label>
-                  <input type="text" id="f-legalname" value="${v('legalName')}" placeholder="Acme Corporation, LLC"></div>
-                <div class="form-group"><label>Industry</label>
-                  <input type="text" id="f-industry" value="${v('industry')}" placeholder="Real Estate / Legal / Healthcare"></div>
+                <div class="form-group"><label>Full Name of Agreement Signatory <span class="req">*</span></label>
+                  <input type="text" id="f-sig-name" value="${v('signatoryName')}" placeholder="Jane Smith"></div>
+                <div class="form-group"><label>Title of Agreement Signatory <span class="req">*</span></label>
+                  <input type="text" id="f-sig-title" value="${v('signatoryTitle')}" placeholder="Chief Executive Officer"></div>
               </div>
               <div class="grid2">
-                <div class="form-group"><label>Company Website</label>
-                  <input type="url" id="f-website" value="${v('website')}" placeholder="https://acmecorp.com"></div>
-                <div class="form-group"><label>Company Size</label>
-                  <input type="text" id="f-size" value="${v('size')}" placeholder="1–10 employees"></div>
+                <div class="form-group"><label>Email Address of Agreement Signatory <span class="req">*</span></label>
+                  <input type="email" id="f-sig-email" value="${v('signatoryEmail')}" placeholder="jane@acmecorp.com"></div>
+                <div class="form-group"><label>Phone Number of Agreement Signatory <span class="req">*</span></label>
+                  <input type="tel" id="f-sig-phone" value="${v('signatoryPhone')}" placeholder="+1 (555) 123-4567"></div>
               </div>
             </div>
+
             <div class="card">
-              <div class="card-title">👤 Primary Contact</div>
+              <div class="card-title">💳 Accounting / Billing Information</div>
+              <div class="form-group"><label>Name of Accounting Personnel <span class="req">*</span></label>
+                <input type="text" id="f-acct-name" value="${v('accountingName')}" placeholder="John Doe"></div>
               <div class="grid2">
-                <div class="form-group"><label>Contact Name <span class="req">*</span></label>
-                  <input type="text" id="f-contactname" value="${v('contactName') || state.name}" placeholder="Jane Smith"></div>
-                <div class="form-group"><label>Title / Role</label>
-                  <input type="text" id="f-title" value="${v('title')}" placeholder="Operations Manager"></div>
+                <div class="form-group"><label>Accounts Payable Email Address <span class="req">*</span></label>
+                  <input type="email" id="f-acct-email" value="${v('accountsPayableEmail')}" placeholder="ap@acmecorp.com"></div>
+                <div class="form-group"><label>Accounting Contact Phone Number <span class="req">*</span></label>
+                  <input type="tel" id="f-acct-phone" value="${v('accountingPhone')}" placeholder="+1 (555) 123-4567"></div>
               </div>
-              <div class="grid2">
-                <div class="form-group"><label>Phone</label>
-                  <input type="tel" id="f-phone" value="${v('phone')}" placeholder="+1 (555) 123-4567"></div>
-                <div class="form-group"><label>Best time to reach you</label>
-                  <input type="text" id="f-besttime" value="${v('bestTime')}" placeholder="Weekdays, 9am–5pm ET"></div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-title">🎯 Staffing Needs</div>
-              <div class="form-group"><label>What roles are you looking to fill?</label>
-                <textarea id="f-roles" placeholder="e.g. 2 bilingual paralegals, 1 virtual assistant">${v('roles')}</textarea></div>
-              <div class="form-group"><label>Anything else we should know?</label>
-                <textarea id="f-notes" placeholder="Timeline, budget range, special requirements...">${v('notes')}</textarea></div>
             </div>`;
         },
         collect: () => ({
-          legalName:   val('f-legalname'),
-          industry:    val('f-industry'),
-          website:     val('f-website'),
-          size:        val('f-size'),
-          contactName: val('f-contactname'),
-          title:       val('f-title'),
-          phone:       val('f-phone'),
-          bestTime:    val('f-besttime'),
-          roles:       val('f-roles'),
-          notes:       val('f-notes'),
+          legalName:            val('f-legalname'),
+          stateIncorp:          val('f-state'),
+          businessAddress:      val('f-address'),
+          signatoryName:        val('f-sig-name'),
+          signatoryTitle:       val('f-sig-title'),
+          signatoryEmail:       val('f-sig-email'),
+          signatoryPhone:       val('f-sig-phone'),
+          accountingName:       val('f-acct-name'),
+          accountsPayableEmail: val('f-acct-email'),
+          accountingPhone:      val('f-acct-phone'),
         }),
         validate: () => {
-          const legal = val('f-legalname'), contact = val('f-contactname');
-          if (!legal) { flagInvalid('f-legalname', 'Company legal name is required'); return false; }
-          if (!contact) { flagInvalid('f-contactname', 'Contact name is required'); return false; }
+          const required = [
+            ['f-legalname',  'Company legal name is required'],
+            ['f-state',      'State of incorporation is required'],
+            ['f-address',    'Business address is required'],
+            ['f-sig-name',   "Signatory's full name is required"],
+            ['f-sig-title',  "Signatory's title is required"],
+            ['f-sig-email',  "Signatory's email is required"],
+            ['f-sig-phone',  "Signatory's phone number is required"],
+            ['f-acct-name',  'Accounting personnel name is required'],
+            ['f-acct-email', 'Accounts payable email is required'],
+            ['f-acct-phone', 'Accounting contact phone is required'],
+          ];
+          for (const [id, msg] of required) {
+            if (!val(id)) { flagInvalid(id, msg); document.getElementById(id).scrollIntoView({behavior:'smooth', block:'center'}); return false; }
+          }
+          // Email format checks on the two email fields
+          for (const id of ['f-sig-email', 'f-acct-email']) {
+            if (!isValidEmail(val(id))) { flagInvalid(id, 'Please enter a valid email address'); return false; }
+          }
           return true;
         },
       },
