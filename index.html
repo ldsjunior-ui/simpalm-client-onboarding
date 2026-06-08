@@ -97,7 +97,9 @@
     input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     input::placeholder, textarea::placeholder { color: var(--text3); }
     input.input-invalid { border-color: #e05252 !important; }
+    input.input-checking { border-color: #f0a500 !important; }
     .field-error-msg { font-size: 0.78rem; color: #e05252; margin-top: 4px; display: block; }
+    .field-info-msg  { font-size: 0.78rem; color: #f0a500; margin-top: 4px; display: block; }
     textarea { resize: vertical; min-height: 80px; }
 
     .btn-primary {
@@ -228,7 +230,7 @@
       </div>
       <div class="form-group">
         <label>Work Email <span class="req">*</span></label>
-        <input type="email" id="su-email" placeholder="jane@acmecorp.com" autocomplete="email">
+        <input type="email" id="su-email" data-validate="email" placeholder="jane@acmecorp.com" autocomplete="email">
         <span class="field-error-msg" id="su-error" style="display:none;"></span>
       </div>
       <button class="btn-primary" id="su-start">Begin Onboarding →</button>
@@ -365,9 +367,9 @@
               </div>
               <div class="grid2">
                 <div class="form-group"><label>Email Address of Agreement Signatory <span class="req">*</span></label>
-                  <input type="email" id="f-sig-email" value="${v('signatoryEmail')}" placeholder="jane@acmecorp.com"></div>
+                  <input type="email" id="f-sig-email" data-validate="email" value="${v('signatoryEmail')}" placeholder="jane@acmecorp.com"></div>
                 <div class="form-group"><label>Phone Number of Agreement Signatory <span class="req">*</span></label>
-                  <input type="tel" id="f-sig-phone" value="${v('signatoryPhone')}" placeholder="+1 (555) 123-4567"></div>
+                  <input type="tel" id="f-sig-phone" data-validate="phone" value="${v('signatoryPhone')}" placeholder="+1 (555) 123-4567"></div>
               </div>
             </div>
 
@@ -377,9 +379,9 @@
                 <input type="text" id="f-acct-name" value="${v('accountingName')}" placeholder="John Doe"></div>
               <div class="grid2">
                 <div class="form-group"><label>Accounts Payable Email Address <span class="req">*</span></label>
-                  <input type="email" id="f-acct-email" value="${v('accountsPayableEmail')}" placeholder="ap@acmecorp.com"></div>
+                  <input type="email" id="f-acct-email" data-validate="email" value="${v('accountsPayableEmail')}" placeholder="ap@acmecorp.com"></div>
                 <div class="form-group"><label>Accounting Contact Phone Number <span class="req">*</span></label>
-                  <input type="tel" id="f-acct-phone" value="${v('accountingPhone')}" placeholder="+1 (555) 123-4567"></div>
+                  <input type="tel" id="f-acct-phone" data-validate="phone" value="${v('accountingPhone')}" placeholder="+1 (555) 123-4567"></div>
               </div>
             </div>`;
         },
@@ -395,7 +397,7 @@
           accountsPayableEmail: val('f-acct-email'),
           accountingPhone:      val('f-acct-phone'),
         }),
-        validate: () => {
+        validate: async () => {
           const required = [
             ['f-legalname',  'Company legal name is required'],
             ['f-state',      'State of incorporation is required'],
@@ -408,12 +410,23 @@
             ['f-acct-email', 'Accounts payable email is required'],
             ['f-acct-phone', 'Accounting contact phone is required'],
           ];
+          const focusFail = (id, msg) => { flagInvalid(id, msg); const el = document.getElementById(id); if (el) el.scrollIntoView({behavior:'smooth', block:'center'}); };
           for (const [id, msg] of required) {
-            if (!val(id)) { flagInvalid(id, msg); document.getElementById(id).scrollIntoView({behavior:'smooth', block:'center'}); return false; }
+            if (!val(id)) { focusFail(id, msg); return false; }
           }
-          // Email format checks on the two email fields
+          // Phone anti-fake checks (signatory + accounting)
+          for (const id of ['f-sig-phone', 'f-acct-phone']) {
+            if (!isValidPhone(val(id))) { focusFail(id, PHONE_FORMAT_MSG); return false; }
+          }
+          // Email format + LIVE domain (MX / disposable / typo) checks
           for (const id of ['f-sig-email', 'f-acct-email']) {
-            if (!isValidEmail(val(id))) { flagInvalid(id, 'Please enter a valid email address'); return false; }
+            const v = val(id);
+            if (!isValidEmail(v)) { focusFail(id, EMAIL_FORMAT_MSG); return false; }
+            setFieldInfo(id, '⏳ Verifying email…');
+            const result = await checkEmailDomain(v);
+            const err = emailDomainError(result, (v.split('@')[1] || ''));
+            if (err) { focusFail(id, err); return false; }
+            clearFieldError(id);
           }
           return true;
         },
@@ -451,16 +464,154 @@
 
     // ─── HELPERS ──────────────────────────────────────────────────────
     function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
-    function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
-    function flagInvalid(id, msg) {
+    function flagInvalid(id, msg) { setFieldError(id, msg); }
+
+    /* ═══ ANTI-FAKE FIELD VALIDATION (ported from the LATAM candidate portal) ═══ */
+    /* TLD whitelist — covers LATAM, India, USA + common global TLDs */
+    const VALID_TLDS = new Set([
+      'com','net','org','edu','gov','mil','int','biz','info','name','io','co',
+      'ar','br','mx','pe','cl','uy','py','bo','ec','ve','gt','hn','sv','ni','cr',
+      'pa','do','cu','pr','tt','jm','ht','lat',
+      'in','pk','lk','bd','np',
+      'us','ca',
+      'uk','au','nz','de','fr','es','it','pt','nl','be','ch','ru','jp','cn','sg',
+      'za','ng','ke','ae','sa','il',
+      'ai','app','dev','tech','digital','online','site','web','store','shop','media',
+      'email','studio','agency','pro','plus','me','tv','fm','cc','ly','gg','careers'
+    ]);
+    function isValidEmail(v) {
+      const val = (v || '').trim().toLowerCase();
+      if (!val) return false;
+      const at = val.indexOf('@');
+      if (at <= 0 || at !== val.lastIndexOf('@')) return false;
+      const local = val.slice(0, at), domain = val.slice(at + 1);
+      if (!local || local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false;
+      if (!/^[a-z0-9._%+\-]+$/.test(local)) return false;
+      if (!domain || !domain.includes('.') || domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) return false;
+      if (!/^[a-z0-9.\-]+$/.test(domain)) return false;
+      const parts = domain.split('.');
+      for (const p of parts) { if (!p || p.startsWith('-') || p.endsWith('-') || !/^[a-z0-9\-]+$/.test(p)) return false; }
+      if (!VALID_TLDS.has(parts[parts.length - 1])) return false;
+      for (let i = 0; i < parts.length - 1; i++) { if (parts[i] === parts[i + 1]) return false; }
+      return true;
+    }
+    function isValidPhone(v) {
+      const val = (v || '').trim();
+      if (!val) return false;
+      const digits = val.replace(/\D/g, '');
+      if (digits.length < 8 || digits.length > 15) return false;
+      if (!/^[+\d][\d\s\-()+.]{4,}$/.test(val)) return false;
+      if (/^(\d)\1+$/.test(digits)) return false;
+      if (/(\d)\1{6,}/.test(digits)) return false;
+      const asc = '0123456789012345678', desc = '9876543210987654321';
+      if (asc.includes(digits.slice(0, 8)) || desc.includes(digits.slice(0, 8))) return false;
+      if (/^(\d{2})\1{4,}$/.test(digits)) return false;
+      return true;
+    }
+    const COMMON_PERSONAL_DOMAINS = new Set([
+      'gmail.com','googlemail.com',
+      'yahoo.com','yahoo.co.in','yahoo.co.uk','yahoo.com.ar','yahoo.com.br','yahoo.com.mx',
+      'icloud.com','me.com','mac.com',
+      'outlook.com','outlook.in','outlook.com.br','outlook.com.ar','outlook.co.in','outlook.co.uk',
+      'hotmail.com','hotmail.co.in','hotmail.com.ar','hotmail.com.br','hotmail.co.uk',
+      'live.com','live.co.in','live.com.ar','msn.com','protonmail.com','proton.me',
+    ]);
+    function _levenshtein(a, b) {
+      const m = a.length, n = b.length, dp = [];
+      for (let i = 0; i <= m; i++) { dp[i] = [i]; for (let j = 1; j <= n; j++) dp[i][j] = i === 0 ? j : 0; }
+      for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+        dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+      return dp[m][n];
+    }
+    function commonDomainTypo(domain) {
+      const d = (domain || '').toLowerCase().trim();
+      if (COMMON_PERSONAL_DOMAINS.has(d)) return null;
+      const base = d.split('.')[0];
+      if (base.length < 3) return null;
+      const targets = [
+        { base: 'gmail', full: 'gmail.com' }, { base: 'yahoo', full: 'yahoo.com' },
+        { base: 'icloud', full: 'icloud.com' }, { base: 'outlook', full: 'outlook.com' },
+        { base: 'hotmail', full: 'hotmail.com' }, { base: 'protonmail', full: 'protonmail.com' },
+      ];
+      for (const t of targets) { if (_levenshtein(base, t.base) <= 2 && base !== t.base) return t.full; }
+      return null;
+    }
+    /* Live email domain check — MX records + disposable detection via mailcheck.ai (free, no key, CORS-ok). */
+    const emailCheckCache = {};
+    async function checkEmailDomain(email) {
+      const domain = (email.split('@')[1] || '').toLowerCase().trim();
+      if (!domain) return 'invalid';
+      if (COMMON_PERSONAL_DOMAINS.has(domain)) { emailCheckCache[domain] = 'ok'; return 'ok'; }
+      const typo = commonDomainTypo(domain);
+      if (typo) { emailCheckCache[domain] = 'typo:' + typo; return 'typo:' + typo; }
+      if (emailCheckCache[domain] !== undefined) return emailCheckCache[domain];
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const r = await fetch('https://api.mailcheck.ai/email/' + encodeURIComponent(email), { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!r.ok) { emailCheckCache[domain] = 'ok'; return 'ok'; }
+        const d = await r.json();
+        const result = d.disposable ? 'disposable' : (d.mx === false ? 'no_mx' : 'ok');
+        emailCheckCache[domain] = result;
+        return result;
+      } catch (e) {
+        if (!emailCheckCache[domain]) emailCheckCache[domain] = 'ok';
+        return 'ok'; // fail open — never block on network error
+      }
+    }
+    function setFieldError(id, msg) {
       const el = document.getElementById(id);
       if (!el) return;
-      el.classList.add('input-invalid');
-      let m = el.parentNode.querySelector('.field-error-msg');
-      if (!m) { m = document.createElement('span'); m.className = 'field-error-msg'; el.parentNode.appendChild(m); }
-      m.textContent = msg; m.style.display = 'block';
-      el.addEventListener('input', () => { el.classList.remove('input-invalid'); m.style.display = 'none'; }, { once: true });
+      el.classList.add('input-invalid'); el.classList.remove('input-checking');
+      const ex = el.parentElement.querySelector('.field-error-msg, .field-info-msg');
+      if (ex) ex.remove();
+      const span = document.createElement('span');
+      span.className = 'field-error-msg'; span.textContent = msg;
+      el.insertAdjacentElement('afterend', span);
     }
+    function setFieldInfo(id, msg) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('input-invalid'); el.classList.add('input-checking');
+      const ex = el.parentElement.querySelector('.field-error-msg, .field-info-msg');
+      if (ex) { ex.className = 'field-info-msg'; ex.textContent = msg; return; }
+      const span = document.createElement('span');
+      span.className = 'field-info-msg'; span.textContent = msg;
+      el.insertAdjacentElement('afterend', span);
+    }
+    function clearFieldError(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('input-invalid', 'input-checking');
+      const ex = el.parentElement.querySelector('.field-error-msg, .field-info-msg');
+      if (ex) ex.remove();
+    }
+    const EMAIL_FORMAT_MSG = 'Enter a valid email address (e.g. name@company.com).';
+    const PHONE_FORMAT_MSG = 'Enter a valid phone with country code, 8–15 digits (e.g. +1 555 000 0000).';
+    function emailDomainError(result, typedDomain) {
+      if (result === 'disposable') return 'Temporary or disposable emails are not accepted. Please use a real work email.';
+      if (result === 'no_mx')      return 'This email domain doesn\'t appear to have a mail server. Check for typos (e.g. gmail.com not gmial.com).';
+      if (result.startsWith('typo:')) return `"${typedDomain}" looks misspelled. Did you mean ${result.slice(5)}?`;
+      return '';
+    }
+    /* Live blur validation — driven by data-validate="email|phone" */
+    document.addEventListener('blur', function(e) {
+      const el = e.target;
+      if (!el.dataset || !el.dataset.validate) return;
+      const v = (el.value || '').trim();
+      if (!v) { clearFieldError(el.id); return; }
+      if (el.dataset.validate === 'email') {
+        if (!isValidEmail(v)) { setFieldError(el.id, EMAIL_FORMAT_MSG); return; }
+        setFieldInfo(el.id, '⏳ Verifying email…');
+        checkEmailDomain(v).then(result => {
+          const err = emailDomainError(result, (v.split('@')[1] || ''));
+          err ? setFieldError(el.id, err) : clearFieldError(el.id);
+        });
+      } else if (el.dataset.validate === 'phone') {
+        isValidPhone(v) ? clearFieldError(el.id) : setFieldError(el.id, PHONE_FORMAT_MSG);
+      }
+    }, true);
     function videoEmbedSrc() {
       if (CHEYENNE_VIDEO_URL) return CHEYENNE_VIDEO_URL;
       if (CHEYENNE_VIDEO_ID)  return `https://drive.google.com/file/d/${CHEYENNE_VIDEO_ID}/preview`;
@@ -470,12 +621,21 @@
     function loadState() { try { const s = localStorage.getItem(LS_KEY); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {} }
 
     // ─── SETUP FLOW ───────────────────────────────────────────────────
-    document.getElementById('su-start').addEventListener('click', () => {
+    let _suBusy = false;
+    document.getElementById('su-start').addEventListener('click', async () => {
+      if (_suBusy) return;
       const company = val('su-company'), name = val('su-name'), email = val('su-email');
       const err = document.getElementById('su-error');
+      const btn = document.getElementById('su-start');
       err.style.display = 'none';
       if (!company || !name) { err.textContent = 'Please fill in all required fields.'; err.style.display = 'block'; return; }
       if (!isValidEmail(email)) { err.textContent = 'Please enter a valid work email.'; err.style.display = 'block'; return; }
+      // Live domain check on the work email (it's where the security receipt is sent)
+      _suBusy = true; btn.disabled = true; btn.textContent = '⏳ Verifying email…';
+      let result = 'ok';
+      try { result = await checkEmailDomain(email); } finally { _suBusy = false; btn.disabled = false; btn.textContent = 'Begin Onboarding →'; }
+      const dErr = emailDomainError(result, (email.split('@')[1] || ''));
+      if (dErr) { err.textContent = dErr; err.style.display = 'block'; return; }
       state.company = company; state.name = name; state.email = email;
       saveState();
       enterApp();
@@ -544,7 +704,13 @@
     // ─── SUBMIT A STEP ────────────────────────────────────────────────
     async function submitStep(id) {
       const s = STEPS[id];
-      if (s.validate && !s.validate()) return;
+      if (s.validate) {
+        const btn = document.getElementById('step-submit');
+        if (btn) btn.disabled = true;
+        let ok = false;
+        try { ok = await s.validate(); } finally { if (btn) btn.disabled = false; }
+        if (!ok) return;
+      }
 
       const data = s.collect ? s.collect() : {};
       state.steps[id] = { submitted: true, data: Object.assign({}, (state.steps[id] || {}).data, data) };
