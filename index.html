@@ -638,6 +638,9 @@
       if (dErr) { err.textContent = dErr; err.style.display = 'block'; return; }
       state.company = company; state.name = name; state.email = email;
       saveState();
+      // Register immediately on the backend so the client shows up on the
+      // admin board as 'Started' even before submitting any step.
+      pushToBackend(0, {}).catch(() => {});
       enterApp();
     });
 
@@ -736,7 +739,7 @@
         contactName: state.name,
         email: state.email,
         stepId: stepId,
-        stepName: STEPS[stepId].name,
+        stepName: (STEPS[stepId] || {}).name || 'Registration',
         formData: data,
         timestamp: new Date().toISOString(),
       };
