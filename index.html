@@ -298,6 +298,12 @@
 
     // ─── STATE ────────────────────────────────────────────────────────
     const LS_KEY = 'simpalm_client_state';
+    // ?reset wipes the saved session and returns to the setup screen —
+    // guaranteed clean start even if another tab kept the old state alive.
+    if (new URLSearchParams(location.search).has('reset')) {
+      try { localStorage.removeItem(LS_KEY); } catch (e) {}
+      history.replaceState(null, '', location.pathname);
+    }
     let state = {
       company: '', name: '', email: '',
       current: 1,
